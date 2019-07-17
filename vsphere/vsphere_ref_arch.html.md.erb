@@ -3,10 +3,8 @@ title: vSphere Reference Architecture
 owner: Customer0
 ---
 
-
-
 This guide provides reference architectures for Pivotal Cloud Foundry (PCF),
-including Pivotal Application Service (PAS) and Pivotal Container Service (PKS), on vSphere.
+including Pivotal Application Service (PAS) and Enterprise Pivotal Container Service (Enterprise PKS), on vSphere.
 
 ## <a id="overview"></a> Overview
 
@@ -32,7 +30,7 @@ Instead, it gives examples of how to apply those instructions to real-world prod
       <td>2.2 or later</td>
     </tr>
     <tr>
-      <td>Pivotal Cloud Foundry Operations Manager</td>
+      <td>Pivotal Cloud Foundry Ops Manager</td>
       <td>2.2 or later</td>
     </tr>
     <tr>
@@ -114,7 +112,7 @@ This section provides information about network requirements, routing, and load 
 #### <a id="network-pas"></a> Network Requirements for PAS
 
 PAS requires a number of statically defined networks to host the main components it is composed of.
-For the Tenant side of an NSX-T deployment, a series of non-routable address banks that the NSX-T routers will manage is defined as follows:
+For the Tenant side of an NSX-T deployment, a series of non-routable address banks that the NSX-T routers manage is defined as follows:
 
 <p class="note"><strong>Note</strong>: These static networks have a smaller host address space assigned than reference designs for PCF v1.xx.</p>
 
@@ -123,9 +121,9 @@ For the Tenant side of an NSX-T deployment, a series of non-routable address ban
 * Services: `192.168.3.0/24`
 
     The Services network can be used with other Ops Manager tiles that you install in addition to PAS.
-    Some of these tiles may require on-demand network capacity. Pivotal recommends that you consider adding a network per tile that needs on-demand resources and pair them up in the tile’s configuration.
+    Some of these tiles might require on-demand network capacity. Pivotal recommends that you consider adding a network per tile that needs on-demand resources and pair them up in the tile’s configuration.
     For more information, see _OD-Services#_ below.
-* OD-Services#: `192.168.4.0` - `192.168.9.0` in /24 segments
+* OD-Services: `192.168.4.0` - `192.168.9.0` in /24 segments
 
     For example, the Redis for PCF tile asks for Network and Services Network.
     The first one is for placing the broker, and the second one is for deploying worker VMs to support the service.
@@ -139,15 +137,15 @@ For the Tenant side of an NSX-T deployment, a series of non-routable address ban
 
 * PAS Dynamic Orgs: `192.168.128.0/17` = 128 orgs/foundation
 
-    Dynamically assigned Org networks are attached to automatically generated NSX-T Tier-1 routers.
+    Dynamically assigned org networks are attached to automatically generated NSX-T Tier-1 routers.
     Instead of defining these networks in Ops Manager, the operator provides a non-overlapping block of address space. This is configurable in the NCP pane of the VMware NSX-T Container Plug-In for PCF tile in Ops Manager.
-    Every Org receives a new /24 network.
+    Every org receives a new /24 network.
 
 This reference uses a pattern that follows previous references. However, all networks now break on the /24 boundary, and the network octet is numerically sequential (1-2-3).
 
 #### <a id="network-pks"></a> Network Requirements for PKS
 
-When deploying PKS trough Ops Manager, you must allocate a block of address space for dynamic networks that PKS will deploy per namespace.
+When deploying PKS trough Ops Manager, you must allocate a block of address space for dynamic networks that PKS deploys per namespace.
 
 Network requirements for PKS are as follows:
 
@@ -181,6 +179,13 @@ Provider routable address space is /25 or /23 for PKS No Ingress.
 NSX-T handles the routing between a T0 router and any T1 routers associated with it.
 
 ### <a id="pas-nsxt"></a> PAS with NSX-T
+
+PAS on vSphere reference architecture is based on the software-defined network
+infrastructure of NSX-T. PAS is deployed to three AZs with an NSX-T Tier-0 router,
+which acts as a central logical router into the PAS platform. Tier-1 routers
+for the PAS and services subnets in each PAS deployment connect back to the Tier-0
+router. You can configure either static or dynamic Border Gateway Protocol (BGP)
+routing for the Tier-0 router from the IP backbone into NSX-T.
 
 Expanding PAS with SDN features is best considered as a greenfield effort. Inserting an SDN layer under a working PAS installation is non-trivial and likely triggers a rebuild. NSX-T constructs that can be used by PAS include the following:
 
@@ -280,7 +285,7 @@ This section provides information about ingress routing (Layer 7) and  load bala
 ##### <a id="layer-7"></a> Ingress Routing
 
 NSX-T provides a native ingress router.
-Third-party options include Istio or Nginx that are running as containers in the cluster.
+Third-party options include Istio or nginx that are running as containers in the cluster.
 
 Wildcard DNS entries are needed for pointing at the ingress service in the style of Gorouters in PAS.
 Domain information for ingress is defined in the manifest of your Kubernetes deployment.
@@ -361,9 +366,9 @@ For more information, see <a href="./vsphere_migrate_datastore.html">How to Migr
 Pivotal recommends the following capacity allocation for PAS installations:
 
 * For production use, at least 8 TB of data storage, either as one 8-TB store or a number of smaller volumes adding up to 8 TB.
-Frequent development may require significantly more storage to accommodate new code and buildpacks. 
+Frequent development might require significantly more storage to accommodate new code and buildpacks.
 
-* For small installations, 4-6 TB of data storage is recommended. 
+* For small installations, 4-6 TB of data storage is recommended.
 
 The primary consumer of storage is NFS or WebDAV.
 
@@ -378,7 +383,7 @@ When planning storage allocation for PKS installations based on Pod and Node nee
 In PAS, a consolidation ratio for containers should follow a conservative 4:1 ratio of vCPUs to pCPUs.
 You can use a more conservative ratio, which is 2:1.
 
-A standard Diego cell is 4x16 (XL) by default. At a 4:1 ratio, you have a 16-vCPU budget, or about 12 containers.
+A standard Diego Cell is 4x16 (XL) by default. At a 4:1 ratio, you have a 16-vCPU budget, or about 12 containers.
 
 If you want to run more containers in a cell, scale the vCPUs accordingly.
 However, high core count VMs become increasingly hard to schedule on the pCPU without high physical core counts in the socket.
@@ -386,7 +391,7 @@ However, high core count VMs become increasingly hard to schedule on the pCPU wi
 HA considerations include the following:
 
 * For non-production environments, the number of AZs that PAS requires for HA depends on the location of its system databases.
-  - With external databases, PAS requires at least two AZs for HA. 
+  - With external databases, PAS requires at least two AZs for HA.
   - With internal system databases, PAS requires at least three AZs for HA.
 
 * For any production environment, Pivotal recommends using at least three AZs for HA.
@@ -396,7 +401,7 @@ HA considerations include the following:
 PCF achieves redundancy through the AZ construct, and the loss of an AZ is not considered catastrophic.
 BOSH Resurrector replaces lost VMs as needed to repair a foundation.
 
-Foundation backup and restoration is accomplished externally by BOSH Backup and Restore (BBR).
+Foundation backup and restore is accomplished externally by BOSH Backup and Restore (BBR).
 For information about BBR, see [Backing Up and Restoring Pivotal Cloud Foundry](../../customizing/backup-restore/index.html).
 
 
@@ -438,7 +443,7 @@ The second AZ doubles compute capacity and expands the NSX-T footprint.
 
 #### <a id="production"></a> Production-Ready PCF Installations
 
-A production-ready PCF foundation looks as follows: 
+A production-ready PCF foundation looks as follows:
 
 * 3 vSphere clusters/3 AZs
 * 4 resource pools: 1 for NSX components and 3 for PAS/1 for PKS
@@ -465,7 +470,7 @@ AZs are aligned to vSphere clusters, with resource pools as an optional organiza
 You can align PKS to any AZ or cluster.
 Keeping PKS and PAS in completely separate AZs is not required.
 
-You can use resource pools in vSphere clusters as AZ constructs to stack different installations of PCF. 
+You can use resource pools in vSphere clusters as AZ constructs to stack different installations of PCF.
 As server capacity continues to increase, the efficiency of deploying independent server clusters only for one installation is low. For example, customers are commonly deploying servers with 768-GB RAM and greater.
 
 To allow for max capacity growth, consider using an NSX-T installation per foundation.
