@@ -123,7 +123,7 @@ For the Tenant side of an NSX-T deployment, a series of non-routable address ban
     The Services network can be used with other Ops Manager tiles that you install in addition to PAS.
     Some of these tiles might require on-demand network capacity. Pivotal recommends that you consider adding a network per tile that needs on-demand resources and pair them up in the tile’s configuration.
     For more information, see _OD-Services#_ below.
-* OD-Services: `192.168.4.0` - `192.168.9.0` in /24 segments
+* OD-Services#: `192.168.4.0` - `192.168.9.0` in /24 segments
 
     For example, the Redis for PCF tile asks for Network and Services Network.
     The first one is for placing the broker, and the second one is for deploying worker VMs to support the service.
@@ -219,7 +219,7 @@ This approach provides a DNAT and SNAT control point and a firewall boundary.
 The Services network is an exception. It shares a T1 router with any associated OD-Services# networks.
 Because these networks are considered part of the same system, inserting any NATs or firewall rules between them is not needed.
 
-#### <a id="load-balancing"></a> Load Balancing for PAS
+<%#### <a id="load-balancing"></a>Load Balancing for PAS
 
 Without NSX-T, you need to choose a suitable load balancer to send traffic to the Gorouters and other systems.
 Installations approaching production level typically use external load balancing from hardware appliance vendors or other network-layer solutions.
@@ -240,7 +240,31 @@ NSX-T load balancers can support many VIPs. Consider deploying one load balancer
 Edge Cluster resources are consumed for load balancing.
 When designing your deployment, consider how many load balancers are needed and how much capacity is available for them.
 
-BOSH can manage the members of the server pools for the NSX-T load balancers using NS Groups.
+BOSH can manage the members of the server pools for the NSX-T load balancers using NS Groups.%>
+
+#### <a id="network-considerations"></a>Network Considerations
+
+Standard NSX-T load balancers are preferred for PAS installations
+on vSphere with NSX-T. Layer 4 and Layer 7 NSX-T load balancers
+are created automatically when apps are deployed. SSL can be
+terminated at the load balancer or used as a pass-through to
+Gorouter. The recommended way is to terminate SSL at the PAS
+Gorouter and use the load balancer as a pass-through.
+
+You must configure an NSX-T load balancer for each PAS Gorouter. Configure the PAS system and app domains to resolve to this load
+balancer. Assign either a private or a public IP address to the
+NSX-T load balancer. When applicable, TCP routers and SSH proxies
+also require load balancers.
+
+##### <a id="dns-pas-nsxt"></a>DNS
+
+You must configure wildcard domain names for PAS in DNS.
+Register the wildcard domains listed in the [Domain Names](../index.html#pas-domains)
+section of _Platform Architecture and Planning_.
+
+##### <a id="subnets-pas-nsxt"></a>Planning Networks, Subnets, and IP Spacing
+
+
 
 ### <a id="pks-nsxt"></a> PKS with NSX-T
 
@@ -280,7 +304,7 @@ Multiple clusters provide security, customization per cluster, privileged contai
 
 ##### <a id="pks-ingress"></a> Ingress Routing and Load Balancing for PKS
 
-This section provides information about ingress routing (Layer 7) and  load balancing (Layer 4) for your PKS deployment.
+This section provides information about ingress routing (Layer 7) and load balancing (Layer 4) for your PKS deployment.
 
 ##### <a id="layer-7"></a> Ingress Routing
 
