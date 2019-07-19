@@ -52,10 +52,6 @@ It supports capacity growth at the vSphere and PCF levels as well as installatio
 This reference architecture deploys PAS to three availability zones (AZs) with an NSX-T Tier-0 (T0) router, which acts as a central logical router into the PAS platform.
 It allocates a minimum of three servers to each vSphere cluster and spreads PAS components across three clusters for high availability (HA). Each vSphere cluster corresponds to an AZ.
 
-For information about HA in PCF, see [High Availability in Cloud Foundry](../../concepts/high-availability.html).
-
-<p class="note"><strong>Note</strong>: Small and non-critical deployments can maintain high availability with two vSphere clusters instead of three, provided that the PAS system databases are configured as external. For more information, see <a href="../../customizing/configure-pas.html">Configuring PAS</a>.</p>
-
 Tier-1 (T1) routers for the PAS and services subnets in each PAS deployment connect back to the T0 router. You can configure either static or dynamic Border Gateway Protocol (BGP) routing for the T0 router from the IP backbone into NSX-T.
 
 <%= image_tag('../images/v2/export/PAS_vSphere_NSX-T.png') %>
@@ -109,7 +105,79 @@ following logical jobs:
 PAS installations with NSX-T consume more IP address space for SNATs than PAS
 installations with NSX-V.
 
-### <a id="pks-nsxt"></a> PKS with NSX-T
+### <a id="pas-nsxt-ha"></a>High Availability Considerations
+
+For information about HA for PAS, see [High Availability](../index.html#pas-ha) in _Platform Architecture and Planning_.
+
+### <a id="pas-nsxt-storage"></a>Storage Considerations
+
+For information about storage for PAS, see [Storage](../index.html#pas-storage) in _Platform Architecture and Planning_.
+
+Shared storage is a requirement for PAS.
+You can allocate networked storage to the host clusters following one of two common approaches: horizontal or vertical.
+The approach you follow should reflect how your data center arranges its storage and host blocks in its physical layout.
+
+The following describes the vertical and horizontal approaches to configuring shared storage:
+
+* **Horizontal**: You grant all hosts access to all datastores and assign a subset to each installation.
+
+    For example, with six datastores `ds01` through `ds06`, you grant all nine hosts access to all six datastores.
+    You then instruct your first PCF installation to use stores `ds01` through `ds03` and your second PCF installation to use `ds04` through `ds06`.
+    <p class="note warning"><b>Warning:</b> If you use the horizontal storage design approach, any storage loss could affect datastores in all AZs. This could result in downtime and unrecoverable loss of data. To avoid downtime and data loss, Pivotal recommends implementing the vertical storage design approach or implementing strong redundancy design at the storage array.</p>
+
+* **Vertical**: You grant each cluster its own dedicated datastores, creating a cluster-aligned storage strategy.
+vSphere VSAN is an example of this architecture.
+The vertical alignment is the preferred choice for PAS as it matches the AZ model of the PaaS.
+Loss of storage in a cluster constitutes loss on an AZ, which is a recoverable failure when at least two more AZs are operational.
+
+    For example, with six datastores `ds01` through `ds06`, you assign datastores `ds01` and `ds02` to your first cluster, `ds03` and `ds04` to your second cluster, and `ds05` and `ds06` to your third cluster.
+    You then instruct your first PAS installation to use `ds01`, `ds03`, and `ds05` and your second PAS installation to use `ds02`, `ds04`, and `ds06`.
+    In this arrangement, all VMs in the same installation and cluster share a dedicated datastore.
+
+
+
+Highly redundant storage systems, such as hyperconverged systems, are the optimal choice for a fully HA PaaS.
+In addition, hyperconverged systems scale with capacity growth and are aligned to the AZ strategy of PCF.
+
+To improve the resiliency of your deployment, you can use separate storage for the management plane of PCF, Ops Manager and BOSH, as well as separate storage for the blobstore.
+
+<p class="note"><strong>Note</strong>: If a datastore is part of a vSphere storage cluster using sDRS (Storage DRS), you must disable the s-vMotion feature on any datastores used by PCF.
+Otherwise, s-vMotion activity can rename independent disks and cause BOSH to malfunction.
+For more information, see <a href="./vsphere_migrate_datastore.html">How to Migrate PCF to a New Datastore in vSphere</a>.</p>
+
+### Storage Capacity
+
+Pivotal recommends the following capacity allocation for PAS installations:
+
+* For production use, at least 8&nbsp;TB of data storage, either as one 8-TB store or a number of smaller volumes adding up to 8&nbsp;TB.
+Frequent development might require significantly more storage to accommodate new code and buildpacks.
+
+* For small installations, 4-6&nbsp;TB of data storage is recommended.
+
+The primary consumer of storage is the NFS or WebDAV blobstore.
+
+<p class="note"><strong>Note</strong>: PCF does not currently support using vSphere storage clusters with the versions of PCF validated for this reference architecture. Datastores should be listed in the vSphere tile by their native name, not the cluster name created by vCenter for the storage cluster.</p>
+
+### <a id="pas-nsxt-sql"></a>SQL Server
+
+An internal MySQL database is sufficient for production use, but an external database provides more database management flexibility and control for large environments that require multiple DCs. For installation instructions, see [Configure System Databases
+](../../customizing/configure-pas.html#sys-db) in _Configuring PAS_.
+
+The NFS/WebDAV blobstore consumes the most storage in your PAS installation. You must actively maintain the storage for this blobstore, so it is best for non-production use. For example, deploying an app, upgrading storage, or migrating to new disks cause blobstore downtime.
+
+For production PAS installations, Pivotal recommends using an external S3 storage appliance as a blobstore. Using an external storage appliance prevents the blobstore from running out of space or requiring an NFS disk upgrade.
+
+For more information, see [Configure File Storage](../../upgrading/configuring.html#file-storage) in _Configuring PAS for Upgrades_.
+
+### <a id="pas-nsxt-security"></a>Security Considerations
+
+For information about security considerations in PAS, see [Security](../index.html#pas-security) in _Platform Architecture and Planning_.
+
+### <a id="pas-nsxt-components"></a>PAS Components Considerations
+
+You must deploy the NCP tile for PAS at the same time as you deploy the PAS tile. You can select either Flannel or NSX-T as the network container plugin for PAS on NSX-T.
+
+## <a id="pks-nsxt"></a> PKS with NSX-T
 
 NSX-T SDN is included in PKS by default, along with the associated licensing.
 To use NSX-T SDN and its dynamic constructs,
@@ -198,48 +266,6 @@ spec:
 
 ### <a id="storage"></a> Storage Design
 
-Shared storage is a requirement for PCF.
-You can allocate networked storage to the host clusters following one of two common approaches: horizontal or vertical.
-The approach you follow should reflect how your data center arranges its storage and host blocks in its physical layout.
-
-The following describes the vertical and horizontal approaches to configuring shared storage:
-
-* Vertical: You grant each cluster its own dedicated datastores, creating a cluster-aligned storage strategy.
-vSphere VSAN is an example of this architecture.
-The vertical alignment is the preferred choice for PCF as it matches the AZ model of the PaaS.
-Loss of storage in a cluster constitutes loss on an AZ, which is a recoverable failure when at least two more AZs are operational.
-
-    For example, with six datastores `ds01` through `ds06`, you assign datastores `ds01` and `ds02` to your first cluster, `ds03` and `ds04` to your second cluster, and `ds05` and `ds06` to your third cluster.
-    You then instruct your first PCF installation to use `ds01`, `ds03`, and `ds05` and your second PCF installation to use `ds02`, `ds04`, and `ds06`.
-    In this arrangement, all VMs in the same installation and cluster share a dedicated datastore.
-
-* Horizontal: You grant all hosts access to all datastores and assign a subset to each installation.
-
-    For example, with six datastores `ds01` through `ds06`, you grant all nine hosts access to all six datastores.
-    You then instruct your first PCF installation to use stores `ds01` through `ds03` and your second PCF installation to use `ds04` through `ds06`.
-    <p class="note warning"><b>Warning:</b> If you use the horizontal storage design approach, any storage loss could affect datastores in all AZs. This could result in downtime and unrecoverable loss of data. To avoid downtime and data loss, Pivotal recommends implementing the vertical storage design approach or implementing strong redundancy design at the storage array.</p>
-
-Highly redundant storage systems, such as hyperconverged systems, are the optimal choice for a fully HA PaaS.
-In addition, hyperconverged systems scale with capacity growth and are aligned to the AZ strategy of PCF.
-
-To improve the resiliency of your deployment, you can use separate storage for the management plane of PCF, Ops Manager and BOSH, as well as separate storage for the blobstore.
-
-<p class="note"><strong>Note</strong>: If a datastore is part of a vSphere storage cluster using sDRS (Storage DRS), you must disable the s-vMotion feature on any datastores used by PCF.
-Otherwise, s-vMotion activity can rename independent disks and cause BOSH to malfunction.
-For more information, see <a href="./vsphere_migrate_datastore.html">How to Migrate PCF to a New Datastore in vSphere</a>.</p>
-
-### Storage Capacity
-
-Pivotal recommends the following capacity allocation for PAS installations:
-
-* For production use, at least 8 TB of data storage, either as one 8-TB store or a number of smaller volumes adding up to 8 TB.
-Frequent development might require significantly more storage to accommodate new code and buildpacks.
-
-* For small installations, 4-6 TB of data storage is recommended.
-
-The primary consumer of storage is NFS or WebDAV.
-
-<p class="note"><strong>Note</strong>: PCF does not currently support using vSphere storage clusters with the versions of PCF validated for this reference architecture. Datastores should be listed in the vSphere tile by their native name, not the cluster name created by vCenter for the storage cluster.</p>
 
 When planning storage allocation for PKS installations based on Pod and Node needs, consider the following chart.
 
