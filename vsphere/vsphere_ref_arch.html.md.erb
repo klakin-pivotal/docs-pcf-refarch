@@ -44,6 +44,13 @@ Instead, it gives examples of how to apply those instructions to real-world prod
   </tbody>
 </table>
 
+This topic includes the following reference architecture sections:
+
++ [PAS with NSX-T](#pas-nsxt)
++ [PAS with NSX-V](#pas-nsxv)
++ [PKS with NSX-T](#pks-nsxt)
++ [PAS and PKS with NSX-T](#pas-pks)
+
 ## <a id="pas-nsxt"></a> PAS with NSX-T
 
 This reference architecture includes VMware vSphere and NSX-T Data Center, a software-defined network virtualization platform that runs on VMware ESXi virtual hosts.
@@ -100,7 +107,7 @@ Select a network range with ample address space. Split the address block into th
 following logical jobs:
 
 - A route for traffic
-- Aligning T0 DNATs/SNATs, load balancers, and other jobs
+- Align T0 DNATs/SNATs, load balancers, and other jobs
 
 PAS installations with NSX-T consume more IP address space for SNATs than PAS
 installations with NSX-V.
@@ -175,7 +182,27 @@ For information about security considerations in PAS, see [Security](../index.ht
 
 ### <a id="pas-nsxt-components"></a>PAS Components Considerations
 
-You must deploy the NCP tile for PAS at the same time as you deploy the PAS tile. You can select either Flannel or NSX-T as the network container plugin for PAS on NSX-T.
+You must deploy the NCP tile for PAS at the same time as you deploy the PAS tile. You can select either Flannel or NSX-T as the network container plugin for PAS with NSX-T.
+
+## <a id="pas-nsxv"></a>PAS with NSX-V
+
+PAS with NSX-V uses services provided by NSX, including Edge Services Gateway (ESG), load balancers, firewall services, and NAT/SNAT services for the PAS platform.
+
+<%= image_tag('../images/v2/export/PAS_vSphere_NSX-V.png') %>
+
+[View a larger version of this diagram](../images/v2/export/PAS_vSphere_NSX-V.png)
+
+### <a id="pas-nsxv-network"></a>Network Considerations
+
+NSX-V provides ESG, which provides load balancer capabilities. You configure the ESG to route to the PAS platform. You must also configure Layer 4 and Layer 7 NSX-V load balancers. You can configure SSL to terminate at the load balancer or you can use the load balancer as a pass-through to Gorouter.
+
+Configure NSX-V load balancers for PAS Gorouters. The PAS system and app domains should resolve to this load balancer. Assign either a private or public IP address to this load balancer.
+
+You can also choose to configure an external load balancer, such as an F5, as the load balancer.
+
+### <a id="pas-nsxv-dns"></a>DNS
+
+Configure wildcard domain names for PAS in DNS. You must register the wildcard domains listed in the [Domains Names](../index.html#pas-domains) section in _Platform Architecture and Planning_.
 
 ## <a id="pks-nsxt"></a> PKS with NSX-T
 
@@ -192,7 +219,7 @@ you need to provide the following information when configuring PKS:
 * Floating IP pool ID created for externally facing IPs (NATs and VIPs)
 
 For more information about configuring PKS with NSX-T networking,
-see [Installing Enterprise PKS on vSphere with NSX-T](https://docs.pivotal.io/runtimes/pks/installing-nsx-t.html).
+see [Installing Enterprise PKS on vSphere with NSX-T](https://docs.pivotal.io/pks/installing-nsx-t.html).
 
 <%= image_tag('../images/pks-with-nsxt.png') %>
 
